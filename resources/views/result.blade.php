@@ -212,7 +212,7 @@
                     var data = new google.visualization.DataTable();
                     data.addColumn('string', 'Дни');
                     data.addColumn('number', 'Китай');
-                    data.addColumn('number', 'Алматы');
+                    data.addColumn('number', 'Уральск');
                     data.addColumn('number', 'Выдача');
                     for (var i = 0; i < labelsDays.length; i++) {
                         data.addRow([labelsDays[i], usersDays[i], usersDays2[i], usersDays3[i]]);
