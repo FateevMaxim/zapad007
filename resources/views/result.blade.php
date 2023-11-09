@@ -149,7 +149,7 @@
                                 data: users,
                                 stack: 'Stack 0',
                             }, {
-                                label: "Алматы",
+                                label: "Уральск",
                                 backgroundColor: "#31c48d",
                                 data: users2,
                                 stack: 'Stack 1',
