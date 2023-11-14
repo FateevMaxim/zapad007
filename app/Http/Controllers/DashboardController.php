@@ -17,6 +17,7 @@ class DashboardController extends Controller
     {
 
         $qr = QrCodes::query()->select()->where('id', 1)->first();
+        $qrChina = QrCodes::query()->select()->where('id', 2)->first();
 
         if (Auth::user()->is_active === 1 && Auth::user()->type === null){
             $tracks = ClientTrackList::query()
