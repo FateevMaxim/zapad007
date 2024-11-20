@@ -243,7 +243,7 @@ class ProductController extends Controller
         $data3 = collect($data3);
 
         $now = Carbon::now()->format('Y-m-d');
-        $targetDay = Carbon::now()->subDays(9)->format('Y-m-d');
+        $targetDay = Carbon::now()->subDays(29)->format('Y-m-d');
 
         while ($now > $targetDay) {
             $labelsDays[] = Carbon::parse($now)->format('Y-m-d');
