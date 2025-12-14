@@ -31,8 +31,11 @@ class TracksImport implements ToModel, SkipsOnError
     */
     public function model(array $row)
     {
+        // Удаляем квадратные скобки, табы и пробелы
+        $trackCode = preg_replace('/[\[\]\s\t]/', '', $row[0]);
+
         return new TrackList([
-            'track_code' => $row[1],
+            'track_code' => $trackCode,
             'to_china' => $this->date,
             'status' => 'Получено в Китае',
             'reg_china' => 1,
