@@ -178,7 +178,14 @@ class ProductController extends Controller
 
     public function fileImport(Request $request)
     {
-        Excel::import(new TracksImport($request['date']), $request->file('file')->store('temp'));
+        // В эту точку передаётся CSV файл. Передаём сам UploadedFile и явно указываем тип ридера CSV,
+        // чтобы PhpSpreadsheet не пытался определять формат по расширению сгенерированного временного файла.
+        Excel::import(
+            new TracksImport($request['date']),
+            $request->file('file'),
+            null,
+            \Maatwebsite\Excel\Excel::CSV
+        );
         return back();
     }
 
