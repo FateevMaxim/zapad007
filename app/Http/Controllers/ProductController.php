@@ -11,6 +11,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -178,15 +179,83 @@ class ProductController extends Controller
 
     public function fileImport(Request $request)
     {
-        // В эту точку передаётся CSV файл. Передаём сам UploadedFile и явно указываем тип ридера CSV,
-        // чтобы PhpSpreadsheet не пытался определять формат по расширению сгенерированного временного файла.
-        Excel::import(
-            new TracksImport($request['date']),
-            $request->file('file'),
-            null,
-            \Maatwebsite\Excel\Excel::CSV
-        );
-        return back();
+        // Валидация загрузки
+        $validated = $request->validate([
+            'file' => ['required', 'file', 'mimetypes:text/plain,text/csv,application/csv,application/vnd.ms-excel'],
+            'date' => ['required', 'date'],
+        ]);
+
+        // Гарантируем существование временной директории Laravel-Excel
+        $tempPath = config('excel.temporary_files.local_path', storage_path('framework/cache/laravel-excel'));
+        if (!is_dir($tempPath)) {
+            @mkdir($tempPath, 0755, true);
+        }
+
+        // Определяем разделитель по первой непустой строке файла (на случай TSV/;), по умолчанию — запятая
+        $uploaded = $request->file('file');
+        $delimiter = ',';
+        $realPath = $uploaded?->getRealPath();
+        if ($realPath && is_readable($realPath)) {
+            $line = '';
+            if (($h = @fopen($realPath, 'r')) !== false) {
+                $line = fgets($h, 4096) ?: '';
+                fclose($h);
+            }
+            if ($line !== '') {
+                $candidates = ["," => substr_count($line, ","), ";" => substr_count($line, ";"), "\t" => substr_count($line, "\t"), "|" => substr_count($line, "|")];
+                arsort($candidates);
+                $top = array_key_first($candidates);
+                if ($top && $candidates[$top] > 0) {
+                    $delimiter = $top;
+                }
+            }
+        }
+
+        try {
+            // В эту точку передаётся CSV файл. Передаём сам UploadedFile и явно указываем тип ридера CSV,
+            // чтобы PhpSpreadsheet не пытался определять формат по расширению временного файла.
+            Excel::import(
+                new TracksImport($validated['date'], $delimiter),
+                $uploaded,
+                null,
+                \Maatwebsite\Excel\Excel::CSV
+            );
+
+            return back()->with('message', 'Импорт завершён успешно');
+        } catch (\Throwable $e) {
+            // Диагностика в логи и дружественная ошибка пользователю
+            Log::error('CSV import failed', [
+                'original_name' => optional($uploaded)->getClientOriginalName(),
+                'mime' => optional($uploaded)->getClientMimeType(),
+                'size' => optional($uploaded)->getSize(),
+                'temp_dir' => $tempPath,
+                'exception' => $e->getMessage(),
+            ]);
+
+            // Fallback: читаем напрямую из временного файла PHP, минуя кэш Laravel‑Excel
+            try {
+                Excel::import(
+                    new TracksImport($validated['date'], $delimiter),
+                    $realPath ?: $uploaded,
+                    null,
+                    \Maatwebsite\Excel\Excel::CSV
+                );
+
+                return back()->with('message', 'Импорт завершён успешно');
+            } catch (\Throwable $e2) {
+                Log::error('CSV import fallback failed', [
+                    'original_name' => optional($uploaded)->getClientOriginalName(),
+                    'mime' => optional($uploaded)->getClientMimeType(),
+                    'size' => optional($uploaded)->getSize(),
+                    'temp_dir' => $tempPath,
+                    'exception' => $e2->getMessage(),
+                ]);
+
+                return back()->withErrors([
+                    'file' => 'Не удалось прочитать CSV. Убедитесь, что файл — CSV (UTF-8) с корректным разделителем. Если проблема повторяется, обратитесь к администратору.',
+                ]);
+            }
+        }
     }
 
     public function result ()
